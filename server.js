@@ -4,7 +4,7 @@ require("dotenv").config();
 
 const express = require("express");
 const axios = require("axios");
-const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
 
 const app = express();
 app.use(express.json({ limit: "25mb" }));
@@ -19,25 +19,17 @@ const WA_TOKEN = must("WHATSAPP_TOKEN");
 const PHONE_NUMBER_ID = must("PHONE_NUMBER_ID");
 const VERIFY_TOKEN = must("VERIFY_TOKEN");
 
-const SMTP_HOST = must("SMTP_HOST");
-const SMTP_PORT = Number(must("SMTP_PORT"));
-const SMTP_SECURE = String(process.env.SMTP_SECURE || "true") === "true";
-const SMTP_USER = must("SMTP_USER");
-const SMTP_PASS = must("SMTP_PASS");
-
 const MAIL_TO_1 = must("MAIL_TO_1");
 const MAIL_TO_2 = must("MAIL_TO_2");
 const MAIL_TO_1_NAME = process.env.MAIL_TO_1_NAME || "Print";
 const MAIL_TO_2_NAME = process.env.MAIL_TO_2_NAME || "Studio";
 
+const SENDGRID_API_KEY = must("SENDGRID_API_KEY");
+const SENDGRID_FROM = must("SENDGRID_FROM");
+
 const PORT = Number(process.env.PORT || 3000);
 
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_SECURE,
-  auth: { user: SMTP_USER, pass: SMTP_PASS },
-});
+sgMail.setApiKey(SENDGRID_API_KEY);
 
 const sessions = new Map();
 
@@ -181,11 +173,11 @@ async function waDownloadMedia(mediaId) {
 
 function buildMailHtml(session, from, modeName) {
   let html = "";
-html = "";
-html += `<b>WERKBON INTERN</b><br>`;
-html += `Datum: ${escapeHtml(nowDateNL())}<br>`;
-html += `Bedrijf of locatie: ${escapeHtml(session.company || "Onbekend")}<br>`;
-html += `<br>`;
+  html = "";
+  html += `<b>WERKBON INTERN</b><br>`;
+  html += `Datum: ${escapeHtml(nowDateNL())}<br>`;
+  html += `Bedrijf of locatie: ${escapeHtml(session.company || "Onbekend")}<br>`;
+  html += `<br>`;
 
   session.photos.forEach((p, idx) => {
     html += `<b>FOTO ${idx + 1}</b><br>`;
@@ -226,17 +218,17 @@ async function sendWorkMailComplete(session, from, modeName) {
     const media = await waDownloadMedia(p.mediaId);
     attachments.push({
       filename: `foto_${i + 1}.${media.ext}`,
-      content: media.buf,
-      contentType: media.ctype,
-      contentDisposition: "attachment",
+      type: media.ctype,
+      disposition: "attachment",
+      content: media.buf.toString("base64"),
     });
   }
 
   const subject = `Werkbon intern ${session.company || "Onbekend"} ${modeName} ${nowDateNL()}`;
 
-  await transporter.sendMail({
-    from: SMTP_USER,
+  await sgMail.send({
     to,
+    from: SENDGRID_FROM,
     subject,
     html: buildMailHtml(session, from, modeName),
     attachments,
@@ -434,5 +426,4 @@ app.get("/", (req, res) => res.status(200).send("OK"));
 
 app.listen(PORT, () => {
   console.log("Server draait op poort " + PORT);
-  console.log("Webhook is jouw ngrok url plus /webhook");
 });

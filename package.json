@@ -1,17 +1,1 @@
-{
-"name": "ai-bot",
-"version": "1.0.0",
-"main": "server.js",
-"scripts": {
-"start": "node server.js"
-},
-"dependencies": {
-"axios": "^1.13.6",
-"dotenv": "^17.3.1",
-"express": "^5.2.1",
-"node-telegram-bot-api": "^0.67.0",
-"nodemailer": "^8.0.1",
-"openai": "^6.25.0",
-"zod": "^4.3.6"
-}
-}
+{"name":"ai-bot","version":"1.0.0","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"@sendgrid/mail":"^8.1.6","axios":"^1.13.6","dotenv":"^17.3.1","express":"^5.2.1","node-telegram-bot-api":"^0.67.0","nodemailer":"^8.0.1","openai":"^6.25.0","zod":"^4.3.6"}}
