@@ -411,7 +411,13 @@ function sheetsClient() {
 async function driveFindFolder(drive, parentId, name) {
   const safeName = String(name).replace(/'/g, "\\'");
   const q = `mimeType='application/vnd.google-apps.folder' and name='${safeName}' and '${parentId}' in parents and trashed=false`;
-  const r = await drive.files.list({ q, fields: "files(id,name)", pageSize: 5 });
+  const r = await drive.files.list({
+    q,
+    fields: "files(id,name)",
+    pageSize: 5,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
   return (r.data.files || [])[0] || null;
 }
 
@@ -426,6 +432,7 @@ async function driveGetOrCreateFolder(drive, parentId, name) {
       parents: [parentId],
     },
     fields: "id,name",
+    supportsAllDrives: true,
   });
 
   return r.data;
@@ -434,7 +441,13 @@ async function driveGetOrCreateFolder(drive, parentId, name) {
 async function driveFindFirstFolderStartingWith(drive, parentId, prefix) {
   const safePrefix = String(prefix).replace(/'/g, "\\'");
   const q = `mimeType='application/vnd.google-apps.folder' and name contains '${safePrefix}' and '${parentId}' in parents and trashed=false`;
-  const r = await drive.files.list({ q, fields: "files(id,name)", pageSize: 20 });
+  const r = await drive.files.list({
+    q,
+    fields: "files(id,name)",
+    pageSize: 20,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
   const files = r.data.files || [];
   const pref = String(prefix);
   const exact = files.find((f) => String(f.name || "").startsWith(pref));
@@ -446,6 +459,7 @@ async function driveUploadBuffer(drive, folderId, filename, buffer, contentType)
     requestBody: { name: filename, parents: [folderId] },
     media: { mimeType: contentType || "application/octet-stream", body: buffer },
     fields: "id,name,webViewLink",
+    supportsAllDrives: true,
   });
   return r.data;
 }
@@ -453,7 +467,13 @@ async function driveUploadBuffer(drive, folderId, filename, buffer, contentType)
 async function sheetsFindSpreadsheetIdByName(drive, parentFolderId, name) {
   const safeName = String(name).replace(/'/g, "\\'");
   const q = `mimeType='application/vnd.google-apps.spreadsheet' and name='${safeName}' and '${parentFolderId}' in parents and trashed=false`;
-  const r = await drive.files.list({ q, fields: "files(id,name)", pageSize: 5 });
+  const r = await drive.files.list({
+    q,
+    fields: "files(id,name)",
+    pageSize: 5,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
   return (r.data.files || [])[0] || null;
 }
 
@@ -479,11 +499,16 @@ async function sheetsCreateCompanySpreadsheet(company, companyFolderId) {
 
   const spreadsheetId = r.data.spreadsheetId;
 
-  await drive.files.update({
-    fileId: spreadsheetId,
-    addParents: companyFolderId,
-    fields: "id,parents",
-  });
+  try {
+    await drive.files.update({
+      fileId: spreadsheetId,
+      addParents: companyFolderId,
+      fields: "id,parents",
+      supportsAllDrives: true,
+    });
+  } catch (e) {
+    console.log("SHEET MOVE ERROR", e && e.message ? e.message : e);
+  }
 
   const header = [[
     "Nummer",
