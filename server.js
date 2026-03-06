@@ -92,12 +92,9 @@ function escapeHtml(s) {
 function resetSession(from) {
   sessions.set(from, {
     started: false,
-
     mode: "",
     step: "menu",
-
     userName: "",
-
     work: {
       step: "collect",
       company: "",
@@ -107,27 +104,23 @@ function resetSession(from) {
       looseTexts: [],
       lastPhotoIndex: -1,
     },
-
     admin: {
       step: "pick_company",
       company: "",
       number: "",
       category: "",
       tab: "",
-
       merk: "",
       model: "",
       uitvoering: "",
       kenteken: "",
       chassis: "",
-
       sheetId: "",
       driveRootId: "",
       driveCatId: "",
       driveObjId: "",
       driveFotosId: "",
       driveDocsId: "",
-
       uploadCount: 0,
       existsMode: false,
     },
@@ -375,14 +368,12 @@ function getInteractive(msg) {
 function getCategoryByNumber(n) {
   const num = Number(n);
   if (!Number.isFinite(num)) return { tab: "Overig", folder: "Overig" };
-
   if (num >= 1000 && num <= 1999) return { tab: "Autos", folder: "Autos" };
   if (num >= 2000 && num <= 2999) return { tab: "Pompen", folder: "Pompen" };
   if (num >= 3000 && num <= 3999) return { tab: "Kranen", folder: "Kranen" };
   if (num >= 4000 && num <= 4999) return { tab: "Keten", folder: "Keten" };
   if (num >= 5000 && num <= 5999) return { tab: "Containers", folder: "Containers" };
   if (num >= 9000 && num <= 9999) return { tab: "Overig", folder: "Overig" };
-
   return { tab: "Overig", folder: "Overig" };
 }
 
@@ -464,23 +455,21 @@ async function driveUploadBuffer(drive, folderId, filename, buffer, contentType)
   return r.data;
 }
 
-async function sheetsFindSpreadsheetIdByName(drive, parentFolderId, name) {
+async function sheetsFindSpreadsheetIdByName(drive, name) {
   const safeName = String(name).replace(/'/g, "\\'");
-  const q = `mimeType='application/vnd.google-apps.spreadsheet' and name='${safeName}' and '${parentFolderId}' in parents and trashed=false`;
+  const q = `mimeType='application/vnd.google-apps.spreadsheet' and name='${safeName}' and trashed=false`;
   const r = await drive.files.list({
     q,
     fields: "files(id,name)",
-    pageSize: 5,
+    pageSize: 10,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
   });
   return (r.data.files || [])[0] || null;
 }
 
-async function sheetsCreateCompanySpreadsheet(company, companyFolderId) {
+async function sheetsCreateCompanySpreadsheet(company) {
   const sheets = sheetsClient();
-  const drive = driveClient();
-
   const title = `${company}_administratie`;
 
   const r = await sheets.spreadsheets.create({
@@ -498,17 +487,6 @@ async function sheetsCreateCompanySpreadsheet(company, companyFolderId) {
   });
 
   const spreadsheetId = r.data.spreadsheetId;
-
-  try {
-    await drive.files.update({
-      fileId: spreadsheetId,
-      addParents: companyFolderId,
-      fields: "id,parents",
-      supportsAllDrives: true,
-    });
-  } catch (e) {
-    console.log("SHEET MOVE ERROR", e && e.message ? e.message : e);
-  }
 
   const header = [[
     "Nummer",
@@ -583,24 +561,23 @@ async function ensureAdminCategoryFolder(session) {
 async function ensureCompanySheet(session) {
   if (session.admin.sheetId) return session.admin.sheetId;
 
-  const { drive, rootFolder } = await ensureAdminCompanyFolder(session);
+  const drive = driveClient();
   const company = session.admin.company;
   const sheetName = `${company}_administratie`;
 
-  const found = await sheetsFindSpreadsheetIdByName(drive, rootFolder.id, sheetName);
+  const found = await sheetsFindSpreadsheetIdByName(drive, sheetName);
   if (found && found.id) {
     session.admin.sheetId = found.id;
     return found.id;
   }
 
-  const createdId = await sheetsCreateCompanySpreadsheet(company, rootFolder.id);
+  const createdId = await sheetsCreateCompanySpreadsheet(company);
   session.admin.sheetId = createdId;
   return createdId;
 }
 
 async function ensureAdminObjectFolders(session) {
   const a = session.admin;
-
   const { drive, catFolder } = await ensureAdminCategoryFolder(session);
 
   const parts = [a.number, a.merk, a.model];
@@ -664,7 +641,6 @@ async function handleWorkbon(from, session, msg, text, img) {
 
       const cap = cleanText(img.caption);
       if (cap) work.photos[work.lastPhotoIndex].texts.push(cap);
-
       return;
     }
 
@@ -761,7 +737,6 @@ async function handleWorkbon(from, session, msg, text, img) {
     const s2 = getSession(from);
     s2.started = true;
     await sendMenu(from);
-    return;
   }
 }
 
@@ -851,7 +826,6 @@ async function handleAdmin(from, session, msg, text, img, doc) {
     a.tab = cat.tab;
 
     const sheetId = await ensureCompanySheet(session);
-
     const exists = await sheetsNumberExists(sheetId, a.tab, a.number);
 
     if (exists) {
@@ -884,8 +858,8 @@ async function handleAdmin(from, session, msg, text, img, doc) {
     if (it.id !== "admin_add") return;
 
     const { drive, catFolder } = await ensureAdminCategoryFolder(session);
-
     const found = await driveFindFirstFolderStartingWith(drive, catFolder.id, `${a.number} `);
+
     if (!found) {
       await waSendText(from, "Ik vond de map niet. Stuur reset en probeer opnieuw.");
       return;
@@ -997,9 +971,7 @@ async function handleAdmin(from, session, msg, text, img, doc) {
 
   if (a.step === "ask_chassis") {
     a.chassis = cleanText(text);
-
     await ensureAdminObjectFolders(session);
-
     a.step = "collect_files";
     a.uploadCount = 0;
     await waSendText(from, "Stuur foto’s of documenten. Typ klaar als alles is toegevoegd.");
@@ -1009,7 +981,6 @@ async function handleAdmin(from, session, msg, text, img, doc) {
   if (a.step === "collect_files") {
     if (text && isKlaar(text)) {
       const sheetId = await ensureCompanySheet(session);
-
       const driveLink = a.driveObjId ? `https://drive.google.com/drive/folders/${a.driveObjId}` : "";
 
       const row = [
@@ -1037,7 +1008,6 @@ async function handleAdmin(from, session, msg, text, img, doc) {
     const media = img || doc;
     if (media) {
       const dl = await waDownloadMedia(media.id);
-
       const { drive } = await ensureAdminCategoryFolder(session);
 
       a.uploadCount += 1;
@@ -1057,8 +1027,6 @@ async function handleAdmin(from, session, msg, text, img, doc) {
     if (text) {
       await waSendText(from, "Ik verwacht hier foto’s of documenten. Typ klaar als je klaar bent.");
     }
-
-    return;
   }
 }
 
@@ -1112,31 +1080,26 @@ async function handleMessage(msg) {
     if (it.id === "menu_admin") {
       session.mode = "admin";
       session.step = "admin";
-
       session.admin = {
         step: "pick_company",
         company: "",
         number: "",
         category: "",
         tab: "",
-
         merk: "",
         model: "",
         uitvoering: "",
         kenteken: "",
         chassis: "",
-
         sheetId: "",
         driveRootId: "",
         driveCatId: "",
         driveObjId: "",
         driveFotosId: "",
         driveDocsId: "",
-
         uploadCount: 0,
         existsMode: false,
       };
-
       await adminAskCompany(from);
       return;
     }
